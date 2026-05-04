@@ -1,0 +1,47 @@
+# Version control
+.git
+.gitignore
+
+# CI/CD config
+.github/
+
+# Dependencies
+node_modules/
+
+# Test files
+tests/
+coverage/
+jest.config.js
+.eslintrc.json
+
+# Docker configs
+Dockerfile
+docker-compose*.yml
+.dockerignore
+
+# Documentation
+README.md
+CONTRIBUTING.md
+SECURITY.md
+LICENSE
+
+# Environment files
+.env
+.env.*
+!.env.example
+
+# IDE / OS
+.vscode/
+.idea/
+*.swp
+*.swo
+*~
+.DS_Store
+Thumbs.db
+
+# Scripts
+scripts/
+
+# Logs
+*.log
+npm-debug.log*

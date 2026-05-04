@@ -1,0 +1,42 @@
+{
+  "name": "cicd-pipeline",
+  "version": "1.0.0",
+  "description": "CI/CD pipeline with security gates on AWS ECS Fargate",
+  "main": "src/server.js",
+  "scripts": {
+    "start": "node src/server.js",
+    "dev": "node --watch src/server.js",
+    "test": "jest --coverage --forceExit --detectOpenHandles",
+    "test:unit": "jest tests/unit --coverage --forceExit",
+    "test:integration": "jest tests/integration --coverage --forceExit --detectOpenHandles",
+    "lint": "eslint src/ tests/ --max-warnings 0",
+    "lint:fix": "eslint src/ tests/ --fix"
+  },
+  "keywords": [
+    "cicd",
+    "github-actions",
+    "docker",
+    "devops",
+    "security",
+    "pipeline"
+  ],
+  "author": "Tanishq Ingawale",
+  "repository": {
+    "type": "git",
+    "url": "https://github.com/tani-mani-meow/cicd-pipeline.git"
+  },
+  "license": "MIT",
+  "dependencies": {
+    "cors": "^2.8.5",
+    "express": "^4.21.0",
+    "helmet": "^8.0.0"
+  },
+  "devDependencies": {
+    "eslint": "^8.57.0",
+    "jest": "^29.7.0",
+    "supertest": "^7.0.0"
+  },
+  "engines": {
+    "node": ">=22.0.0"
+  }
+}
