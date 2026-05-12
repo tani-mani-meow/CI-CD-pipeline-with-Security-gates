@@ -1,0 +1,23 @@
+# -- Required --
+project_name       = "cicd-pipeline"
+environment        = "staging"           # used for resource naming
+aws_region         = "us-east-1"
+github_repository  = "tani-mani-meow/cicd-pipeline"  # used for OIDC subject claim
+
+# -- Networking --
+vpc_cidr            = "10.0.0.0/16"
+availability_zones  = ["us-east-1a", "us-east-1b"]
+
+# -- Container --
+container_port      = 3000
+container_cpu       = 256                 # 256 (.25 vCPU) or 512 (.5 vCPU)
+container_memory    = 512                 # 512 MB, 1024 MB, or 2048 MB
+desired_count       = 2                   # number of ECS tasks to run
+health_check_path   = "/health"
+
+# -- Optional overrides --
+container_image_tag = "latest"
+
+# -- Cost note --
+# Running this stack continuously costs approximately $65/month.
+# Use the destroy.yml workflow to tear down when not in use.
