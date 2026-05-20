@@ -1,0 +1,133 @@
+name: "Manual Rollback"
+
+on:
+  workflow_dispatch:
+    inputs:
+      task_revision:
+        description: "Task definition revision number to rollback to (e.g., 5)"
+        required: true
+        type: string
+      environment:
+        description: "Target environment"
+        required: true
+        type: choice
+        options:
+          - staging
+          - production
+
+permissions:
+  id-token: write
+  contents: read
+
+env:
+  AWS_REGION: ${{ vars.AWS_REGION || 'us-east-1' }}
+
+jobs:
+  validate:
+    name: Validate Rollback Target
+    runs-on: ubuntu-latest
+    timeout-minutes: 5
+    outputs:
+      task_arn: ${{ steps.validate.outputs.task_arn }}
+      cluster: ${{ steps.set-env.outputs.cluster }}
+      service: ${{ steps.set-env.outputs.service }}
+
+    steps:
+      - name: Harden Runner
+        uses: step-security/harden-runner@f808768d1510423e83855289c910610ca9b43176 # v2.17.0
+        with:
+          egress-policy: audit
+
+      - name: Set environment-specific variables
+        id: set-env
+        env:
+          ENVIRONMENT: ${{ inputs.environment }}
+        run: |
+          echo "cluster=cicd-pipeline-${ENVIRONMENT}" >> "$GITHUB_OUTPUT"
+          echo "service=cicd-pipeline-${ENVIRONMENT}" >> "$GITHUB_OUTPUT"
+          echo "family=cicd-pipeline-${ENVIRONMENT}" >> "$GITHUB_OUTPUT"
+
+      - name: Configure AWS credentials (OIDC)
+        uses: aws-actions/configure-aws-credentials@7474bc4690e29a8392af63c5b98e7449536d5c3a # v4
+        with:
+          role-to-assume: ${{ secrets.AWS_ROLE_ARN }}
+          aws-region: ${{ env.AWS_REGION }}
+
+      - name: Validate task definition exists
+        id: validate
+        env:
+          FAMILY: ${{ steps.set-env.outputs.family }}
+          REVISION: ${{ inputs.task_revision }}
+        run: |
+          TASK_ARN="${FAMILY}:${REVISION}"
+
+          echo "Verifying task definition: $TASK_ARN"
+
+          if aws ecs describe-task-definition --task-definition "$TASK_ARN" > /dev/null 2>&1; then
+            echo "Task definition found"
+            echo "task_arn=$TASK_ARN" >> "$GITHUB_OUTPUT"
+          else
+            echo "Task definition not found: $TASK_ARN"
+            echo ""
+            echo "Available revisions:"
+            aws ecs list-task-definitions --family-prefix "$FAMILY" --sort DESC --max-items 10
+            exit 1
+          fi
+
+  rollback:
+    name: Rollback ${{ inputs.environment }}
+    runs-on: ubuntu-latest
+    needs: validate
+    timeout-minutes: 10
+    environment:
+      name: ${{ inputs.environment }}
+
+    steps:
+      - name: Harden Runner
+        uses: step-security/harden-runner@f808768d1510423e83855289c910610ca9b43176 # v2.17.0
+        with:
+          egress-policy: audit
+
+      - name: Checkout code
+        uses: actions/checkout@34e114876b0b11c390a56381ad16ebd13914f8d5 # v4
+
+      - name: Configure AWS credentials (OIDC)
+        uses: aws-actions/configure-aws-credentials@7474bc4690e29a8392af63c5b98e7449536d5c3a # v4
+        with:
+          role-to-assume: ${{ secrets.AWS_ROLE_ARN }}
+          aws-region: ${{ env.AWS_REGION }}
+
+      - name: Execute rollback
+        env:
+          TASK_ARN: ${{ needs.validate.outputs.task_arn }}
+          CLUSTER: ${{ needs.validate.outputs.cluster }}
+          SERVICE: ${{ needs.validate.outputs.service }}
+        run: |
+          aws ecs update-service \
+            --cluster "${CLUSTER}" \
+            --service "${SERVICE}" \
+            --task-definition "${TASK_ARN}" \
+            --force-new-deployment
+
+          aws ecs wait services-stable \
+            --cluster "${CLUSTER}" \
+            --services "${SERVICE}"
+
+      - name: Verify rollback health
+        env:
+          CLUSTER: ${{ needs.validate.outputs.cluster }}
+          REVISION: ${{ inputs.task_revision }}
+        run: |
+          ALB_DNS=$(aws elbv2 describe-load-balancers \
+            --query "LoadBalancers[?contains(LoadBalancerName, '${CLUSTER}')].DNSName" \
+            --output text)
+
+          for i in $(seq 1 5); do
+            HTTP_STATUS=$(curl -s -o /dev/null -w "%{http_code}" "http://$ALB_DNS/health" 2>/dev/null) || HTTP_STATUS="000"
+            if [ "$HTTP_STATUS" = "200" ]; then
+              exit 0
+            fi
+            sleep 10
+          done
+
+          exit 1
