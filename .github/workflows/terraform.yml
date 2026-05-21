@@ -1,0 +1,38 @@
+name: "Terraform"
+
+on:
+  pull_request:
+    branches: [main]
+    paths:
+      - "terraform/**"
+  workflow_dispatch:
+
+jobs:
+  terraform:
+    name: ${{ github.event_name == 'pull_request' && 'Plan' || 'Apply' }}
+    runs-on: ubuntu-latest
+    steps:
+      - name: Checkout code
+        uses: actions/checkout@v4
+
+      - name: Setup Terraform
+        uses: hashicorp/setup-terraform@b9cd54a3c349d3f38e8881555d616ced269862dd # v3
+        with:
+          terraform_version: "1.9"
+
+      - name: Configure AWS credentials
+        uses: aws-actions/configure-aws-credentials@v4
+        with:
+          role-to-assume: ${{ secrets.AWS_ROLE_ARN }}
+          aws-region: ${{ vars.AWS_REGION }}
+
+      - name: Terraform Init
+        run: terraform init
+
+      - name: Terraform ${{ github.event_name == 'pull_request' && 'Plan' || 'Apply' }}
+        run: |
+          if [ "${{ github.event_name }}" = "pull_request" ]; then
+            terraform plan -var-file="terraform.tfvars" -no-color
+          else
+            terraform apply -var-file="terraform.tfvars" -auto-approve
+          fi

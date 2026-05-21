@@ -1,0 +1,13 @@
+[core]
+	repositoryformatversion = 0
+	filemode = false
+	bare = false
+	logallrefupdates = true
+	symlinks = false
+	ignorecase = true
+[user]
+	email = tanishq.ingawale@gmail.com
+	name = Tanishq Ingawale
+[remote "origin"]
+	url = https://github.com/tani-mani-meow/CI-CD-pipeline-with-Security-gates
+	fetch = +refs/heads/*:refs/remotes/origin/*
