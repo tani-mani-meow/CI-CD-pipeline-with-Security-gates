@@ -53,3 +53,5 @@ temp/
 # History generation script (tool, not project code)
 scripts/generate_history.py
 
+# Local Git backups
+/.git.backup_*/
